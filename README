@@ -1,0 +1,59 @@
+This set of scripts and Dockerfiles have been used to test the Linux
+perf tool and the pahole projects on as many distros as are available on
+the public container image repositories such as quay, docker hub, etc.
+
+Now I just pruned it a bit and removed as much perf-isms as possible so
+that we can use it to test build more tools.
+
+Basic usage:
+
+1) Build the images running, do this from time to time to update the
+   base images:
+
+  $ pull_build
+
+2) Create a tarball with the tool source code, for perf that is:
+
+  $ make perf-tarxz-src-pkg
+  $ ls -la perf-*.tar.xz
+  -rw-r--r--. 1 acme acme 2917628 Mar 18 10:39 perf-6.8.0.tar.xz
+  $
+
+3) Make it available for curl/wget to later obtain it, lighttpd being
+   a possibility:
+
+ $ sudo cp perf-*.tar.xz /var/www/lighttpd/perf/
+
+4) Specify the tarball URL to be used:
+
+ $ export BUILD_TARBALL=http://192.168.86.5/perf/perf-6.8.0-rc1.tar.xz
+
+5) Run the 'dm' utility to enumerate and run all the build containers:
+
+   1   91.93 almalinux:8   : Ok  gcc (GCC) 8.5.0 20210514 (Red Hat 8.5.0-20), clang version 16.0.6 (Red Hat 16.0.6-2.module_el8.9.0+3621+df7f7146) flex 2.6.1
+
+   2   84.19 almalinux:9   : Ok  gcc (GCC) 11.4.1 20230605 (Red Hat 11.4.1-2), clang version 16.0.6 (Red Hat 16.0.6-1.el9) flex 2.6.4
+
+   3  102.19 alpine:3.15   : Ok  gcc (Alpine 10.3.1_git20211027) 10.3.1 20211027, Alpine clang version 12.0.1 flex 2.6.4
+
+   SNIP
+
+   9    7.76 amazonlinux:2 : FAIL gcc version 7.3.1 20180712 (Red Hat 7.3.1-17) (GCC)
+    libbpf.c: In function 'create_placeholder_fd':
+    libbpf.c:1657:64: error: 'MFD_CLOEXEC' undeclared (first use in this function); did you mean 'FD_CLOEXEC'?
+      fd = ensure_good_fd(sys_memfd_create("libbpf-placeholder-fd", MFD_CLOEXEC));
+                                                                    ^~~~~~~~~~~
+                                                                    FD_CLOEXEC
+    libbpf.c:1657:64: note: each undeclared identifier is reported only once for each function it appears in
+
+   SNIP
+
+6) In the failure above more can be found at:
+
+  $ cat dm.log/amazonlinux:2
+
+To build some other project one has to specify which is the build
+command after the build tarball, for example for pahole, that has a
+buildcmd.sh script in its main directory:
+
+  $ export BUILD_CMD=buildcmd.sh

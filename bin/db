@@ -1,0 +1,8 @@
+#!/bin/bash
+# Arnaldo Carvalho de Melo <acme@redhat.com>, (C) 2016-
+# Build a container
+# SPDX-License-Identifier: GPL-2.0-only
+
+image=$(grep "^# tools/" Dockerfile | cut -d' ' -f2)
+echo $image
+buildah bud $* -t $image .

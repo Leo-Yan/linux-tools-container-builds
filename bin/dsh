@@ -1,0 +1,14 @@
+#!/bin/bash
+# Arnaldo Carvalho de Melo <acme@redhat.com>, (C) 2016-
+# Enter a container for looking for packages, try building a tool, etc.
+# SPDX-License-Identifier: GPL-2.0-only
+
+if [ "$1" = "." ] ; then
+	image=$(grep "^# acmel/" Dockerfile | cut -d'-' -f5-)
+else
+	image=$1
+fi
+
+shift
+
+podman run $* --entrypoint=/bin/sh --rm -ti tools/linux-tools-build-${image}

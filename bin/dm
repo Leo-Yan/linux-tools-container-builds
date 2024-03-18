@@ -1,0 +1,134 @@
+#!/bin/bash
+# Arnaldo Carvalho de Melo <acme@redhat.com>, (C) 2016-
+# Enumerate container images and and build
+# SPDX-License-Identifier: GPL-2.0-only
+
+verbose=0
+if [ "$1" = "-v" ] ; then
+	verbose=1
+	shift
+fi
+
+if [ $# -eq 0 ] ; then
+	images=$(podman images --format "{{.Repository}}:{{.Tag}}" | grep /tools/ | grep -v '<none>' | sort -t: -Vk1,2)
+elif [ $# -eq 1 -a "$1" = "." ] ; then
+	images=$(grep "^# tools/" Dockerfile | cut -d'-' -f5-)
+elif [ $# -eq 1 -a "$1" = "-X" ] ; then
+	images=$(podman images --format "{{.Repository}}:{{.Tag}}" | grep /tools/ | grep -v '<none>' | sort -t: -Vk1,2 | grep -v -- -x-)
+elif [ $# -eq 2 -a "$1" = "from" ] ; then
+	images=$(podman images --format "{{.Repository}}:{{.Tag}}" | grep /tools/ | grep -v '<none>' | sort -t: -Vk1,2)
+	from=$2
+	if [ "${from::34}" != "tools/linux-tools-build-" ] ; then
+		from="localhost/tools/linux-tools-build-${from}"
+	fi
+elif [ $# -eq 2 -a "$1" = "to" ] ; then
+	images=$(podman images --format "{{.Repository}}:{{.Tag}}" | grep /tools/ | grep -v '<none>' | sort -t: -Vk1,2)
+	to=$2
+	if [ "${to::34}" != "tools/linux-tools-build-" ] ; then
+		to="localhost/tools/linux-tools-build-${to}"
+	fi
+else
+	images=$*
+fi
+
+output=dm.log
+rm -rf ${output}.old
+test -f ${output} && mv ${output} ${output}.old
+mkdir -p ${output}
+output_stat=$(mktemp ${output}/stat.XXXXXX)
+
+PODMAN_RUN="podman run --rm -ti"
+
+printf "Subject: tools build test for $BUILD_TARBALL $BUILD_CMD\n\n" > ${output}/summary
+
+let idx=1
+total_seconds_expr="{ print "
+for img in ${images} ; do
+	if [ -n "$from" ] ; then
+		if [ "$img" != "$from" ] ; then
+			let idx+=1
+			continue
+		else
+			unset from
+		fi
+	fi
+	if [ -n "$to" ] ; then
+		if [ "$img" == "$to" ] ; then
+			break
+		fi
+	fi
+	if [ "${img::34}" != "localhost/tools/linux-tools-build-" ] ; then
+		img="localhost/tools/linux-tools-build-${img}"
+	fi
+	distro=${img:34} ; printf "%4d: %s" ${idx} "${distro}" ; echo ${distro} > ${output}/${distro}
+	workload="${PODMAN_RUN} ${img} $BUILD_TARBALL $BUILD_CMD"
+	if [ $verbose -eq 1 ] ; then
+		perf stat -e dummy ${workload} 2> ${output_stat} | tee -a ${output}/${distro}
+		[ ${PIPESTATUS[0]} -eq 0 ] && result="Ok" || result="FAIL"
+	else
+		perf stat -e dummy ${workload} 2> ${output_stat} >> ${output}/${distro} && result="Ok" || result="FAIL"
+	fi
+	envdm=$(podman inspect --format '{{ .Config.Env }}' --type image $img)
+	CROSS_COMPILE=$(echo $envdm | grep -q CROSS_COMPILE && echo $envdm | sed -r 's/.* CROSS_COMPILE=([a-z0-9A-Z/_.-]+).*/\1/g')
+	gcc_version=$(${PODMAN_RUN} --entrypoint=${CROSS_COMPILE}gcc $img --version | head -1 | tr -d '\r\n')
+	flex_version=$(${PODMAN_RUN} --entrypoint=flex $img --version | head -1 | tr -d '\r\n')
+	NO_CLANG=$(echo $envdm | grep -q NO_CLANG && echo "1")
+	clang_version=""
+	if [ -z "$NO_CLANG" ] ; then
+		clang_version=$(${PODMAN_RUN} --entrypoint=${CROSS_COMPILE}clang $img --version 2>/dev/null | head -1 | tr -d '\r\n')
+		[ -z "$clang_version" ] || clang_version=$(echo -n ", $clang_version")
+	fi
+	timeline=$(grep "seconds time elapsed" ${output_stat}) ; seconds=$(echo ${timeline} | sed -r 's/([0-9]+\.[0-9]+).* second.*/\1/g') ; rm -f ${output_stat}
+	printf "\b\b" ; for a in $(seq ${#distro}) ; do printf "\b" ; done
+	printf " %8.2f %-30s: %-4s " ${seconds} ${distro} ${result}
+	printf "%4d %8.2f %-30s: %-4s " ${idx} ${seconds} ${distro} ${result} >> ${output}/summary
+	if [ "${result}" == "FAIL" ] ; then
+		ccfail=$(grep -E '^(clang|gcc|flex) version' ${output}/${distro} | sed 's///g' | tail -1)
+		if [ -n "${ccfail}" ] ; then
+			printf "%s\n" "${ccfail}"                               # https://www.commandlinefu.com/commands/view/12043/remove-color-special-escape-ansi-codes-from-text-with-sed
+			printf "%s\n" "${ccfail}" >> ${output}/summary          # Remove movements and color escape sequences
+		fi
+		ccerrors=$(grep 'error:' -B1 -A100 ${output}/${distro} | grep -v \/tmp\/build | grep "Waiting for unfinished" -B1000 | grep -v "Waiting for unfinished" | sed 's/^/    /g')
+		if [ -n "${ccerrors}" ] ; then
+			printf "%s\n" "${ccerrors}"
+			printf "%s\n" "${ccerrors}" | sed "s,\x1B\[[0-9;]*[a-zA-Z],,g" | sed 's///g' >> ${output}/summary
+		fi
+		lderrors=$(grep "^In file included from " -B4 -A10 ${output}/${distro} | sed 's/^/    /g')
+		if [ -n "${lderrors}" ] ; then
+			printf "%s\n" "${lderrors}"
+			printf "%s\n" "${lderrors}" | sed "s,\x1B\[[0-9;]*[a-zA-Z],,g" | sed 's///g' >> ${output}/summary
+		fi
+		lderrors=$(grep "linker command failed" -B4 -A10 ${output}/${distro} | sed 's/^/    /g')
+		if [ -n "${lderrors}" ] ; then
+			printf "%s\n" "${lderrors}"
+			printf "%s\n" "${lderrors}" | sed "s,\x1B\[[0-9;]*[a-zA-Z],,g" | sed 's///g' >> ${output}/summary
+		fi
+	else
+		printf "${gcc_version} ${clang_version} ${flex_version}\n"
+		printf "${gcc_version} ${clang_version} ${flex_version}\n" >> ${output}/summary
+	fi
+	if [ ${idx} -eq 1 ] ; then
+		total_seconds_expr+=${seconds}
+	else
+		total_seconds_expr+=" + ${seconds}"
+	fi
+	let idx+=1
+done
+
+total_seconds_expr+=" }"
+total_seconds=$(echo - | awk "${total_seconds_expr}")
+
+grep BUILD_TARBALL_HEAD ${output}/*:* | cut -d: -f3 | sort -u
+grep BUILD_TARBALL_HEAD ${output}/*:* | cut -d: -f3 | sort -u >> ${output}/summary
+
+printf "%2d %s\n" ${idx} ${total_seconds}
+printf "%2d %s\n" ${idx} ${total_seconds} >> ${output}/summary
+
+destination_config=~/.dm.destination
+
+if [ -f $destination_config ] ; then
+	destination=`cat $destination_config`
+	cat ${output}/summary | msmtp -a gmail $destination
+else
+	echo "install msmtp, add a gmail config to your ~/.msmtprc and set the destination e-mail in ~/.dm.destination to receive the summary when all containers finish building $BUILD_TARBALL"
+fi

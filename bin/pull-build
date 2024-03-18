@@ -1,0 +1,25 @@
+#!/bin/bash
+# Arnaldo Carvalho de Melo <acme@redhat.com>, (C) 2016-
+# Pull base images and rebuild when they get updated
+# SPDX-License-Identifier: GPL-2.0-only
+
+find . -name Dockerfile | xargs grep "^FROM " | grep -v end-of-life | cut -d ' ' -f2 | sort -t: -k2 -urV | cat | \
+while read from ; do
+	shortfrom=$(basename $from)
+	echo -n "$shortfrom: "
+	before=$(podman images --format "{{.ID}}" $from)
+	podman pull $from > /dev/null 2>&1
+	after=$(podman images --format "{{.ID}}" $from)
+	if [ "${before}" = "${after}" ] ; then
+		echo "no changes"
+		continue
+	fi
+	printf "building %s children:\n" "$shortfrom"
+	find . -name Dockerfile | grep -v end-of-life | xargs grep -l "^FROM $from" | xargs dirname | \
+	while read image ; do
+		cd $image
+		db
+		cd -
+	done
+done
+echo
