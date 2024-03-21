@@ -33,7 +33,7 @@ fi
 
 output=dm.log
 rm -rf ${output}.old
-test -f ${output} && mv ${output} ${output}.old
+test -d ${output} && mv ${output} ${output}.old
 mkdir -p ${output}
 output_stat=$(mktemp ${output}/stat.XXXXXX)
 
