@@ -4,7 +4,7 @@ MAINTAINER Arnaldo Carvalho de Melo <acme@kernel.org>
 RUN yum -y install make gcc g++ flex bison \
 		   clang-devel llvm-devel \
 		   bc git openssl \
-		   xz tar \
+		   xz tar diffutils \
 		   elfutils-libelf-devel elfutils-devel \
 		   libunwind-devel audit-libs-devel openssl-devel slang-devel \
 		   perl-ExtUtils-Embed python-devel python-setuptools binutils-devel \
