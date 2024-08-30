@@ -12,7 +12,7 @@ fi
 if [ $# -eq 0 ] ; then
 	images=$(podman images --format "{{.Repository}}:{{.Tag}}" | grep /tools/ | grep -v '<none>' | sort -t: -Vk1,2)
 elif [ $# -eq 1 -a "$1" = "." ] ; then
-	images=$(grep "^# tools/" Dockerfile | cut -d'-' -f5-)
+	images=$(grep "^# tools/" Dockerfile | cut -d'-' -f4-)
 elif [ $# -eq 1 -a "$1" = "-X" ] ; then
 	images=$(podman images --format "{{.Repository}}:{{.Tag}}" | grep /tools/ | grep -v '<none>' | sort -t: -Vk1,2 | grep -v -- -x-)
 elif [ $# -eq 2 -a "$1" = "from" ] ; then
