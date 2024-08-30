@@ -37,7 +37,7 @@ test -d ${output} && mv ${output} ${output}.old
 mkdir -p ${output}
 output_stat=$(mktemp ${output}/stat.XXXXXX)
 
-PODMAN_RUN="podman run --tmpfs /tmp:size=8G --rm -ti"
+PODMAN_RUN="podman run --network host --tmpfs /tmp:size=8G --rm -ti"
 
 printf "Subject: tools build test for $BUILD_TARBALL $BUILD_CMD\n\n" > ${output}/summary
 
