@@ -9,7 +9,6 @@ RUN apt-get -y update && \
 	gcc g++ \
 	bc findutils clang-13 llvm-13 \
 	binutils-dev \
-	llvm-dev \
 	libaudit-dev \
 	libcap-dev \
 	libcapstone-dev \
