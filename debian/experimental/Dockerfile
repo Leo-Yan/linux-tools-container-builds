@@ -24,6 +24,7 @@ RUN apt-get -y update && \
 	libzstd-dev \
 	libunwind-dev \
 	python-dev-is-python3 \
+	python3-setuptools \
 	systemtap-sdt-dev \
         libbabeltrace-ctf-dev cmake xmlto asciidoc && \
     apt-get -y clean && \
