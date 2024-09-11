@@ -6,7 +6,7 @@ RUN apt-get -y update && \
     apt-get -y install \
 	make gcc g++ flex bison curl file man \
 	bc findutils clang llvm \
-	libclang-dev libcap-dev \
+	libcap-dev \
 	libunwind8-dev libssl-dev libslang2-dev python3-dev python3-setuptools \
 	systemtap-sdt-dev libgtk2.0-dev liblzma-dev binutils-dev \
 	libelf-dev libiberty-dev libdw-dev libaudit-dev \
