@@ -8,7 +8,7 @@ RUN dnf -y install make gcc gcc-c++ flex bison xz \
 	systemtap-sdt-devel gtk2-devel xz-devel binutils-devel \
 	elfutils-libelf-devel elfutils-devel audit-libs-devel \
 	numactl-devel clang-devel llvm-devel libcap-devel opencsd-devel \
-	redhat-rpm-config java-1.8.0-openjdk-devel perl-ExtUtils-Embed \
+	redhat-rpm-config java-latest-openjdk-devel perl-ExtUtils-Embed \
 	libtraceevent-devel libbpf-devel capstone-devel \
 	cmake xmlto asciidoc && \
     dnf -y clean all && \
