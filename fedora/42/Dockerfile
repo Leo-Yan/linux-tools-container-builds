@@ -3,7 +3,7 @@ FROM fedora:42
 MAINTAINER Arnaldo Carvalho de Melo <acme@kernel.org>
 RUN dnf -y install make gcc gcc-c++ flex bison elfutils-libelf-devel xz
 RUN dnf -y install bc file findutils clang llvm openssl git diffutils \
-		   elfutils-devel libunwind-devel \
+		   elfutils-devel libunwind-devel gawk which \
 		   openssl-devel slang-devel gtk2-devel perl-ExtUtils-Embed \
 		   python3-devel python3-setuptools binutils-devel xz-devel numactl-devel systemtap-sdt-devel \
 		   clang-devel llvm-devel redhat-rpm-config libcap-devel \
